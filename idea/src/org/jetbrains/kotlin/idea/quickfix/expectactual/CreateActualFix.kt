@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.diagnostics.Diagnostic
 import org.jetbrains.kotlin.diagnostics.DiagnosticFactory
 import org.jetbrains.kotlin.diagnostics.Errors
+import org.jetbrains.kotlin.idea.caches.resolve.analyze
 import org.jetbrains.kotlin.idea.core.*
 import org.jetbrains.kotlin.idea.facet.implementingModules
 import org.jetbrains.kotlin.idea.highlighter.markers.actualsForExpected
@@ -42,6 +43,7 @@ import org.jetbrains.kotlin.idea.util.application.runWriteAction
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.hasExpectModifier
+import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.MultiTargetPlatform
 import org.jetbrains.kotlin.resolve.getMultiTargetPlatform
 
@@ -259,6 +261,16 @@ internal fun KtPsiFactory.generateClassOrObjectByExpectedClass(
                     it.addModifier(KtTokens.ACTUAL_KEYWORD)
                 }
             }
+        }
+    }
+
+    val context = expectedClass.analyze()
+    actualClass.superTypeListEntries.zip(expectedClass.superTypeListEntries).forEach { (actualEntry, expectedEntry) ->
+        if (actualEntry is KtSuperTypeCallEntry) return@forEach
+        val superType = context[BindingContext.TYPE, expectedEntry.typeReference]
+        val superClassDescriptor = superType?.constructor?.declarationDescriptor as? ClassDescriptor ?: return@forEach
+        if (superClassDescriptor.kind == ClassKind.CLASS || superClassDescriptor.kind == ClassKind.ENUM_CLASS) {
+            actualEntry.replace(createSuperTypeCallEntry("${actualEntry.typeReference!!.text}()"))
         }
     }
 
