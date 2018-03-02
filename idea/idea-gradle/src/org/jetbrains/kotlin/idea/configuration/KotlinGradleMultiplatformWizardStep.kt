@@ -41,6 +41,8 @@ class KotlinGradleMultiplatformWizardStep(
     private val wizardContext: WizardContext
 ) : ModuleWizardStep() {
 
+    private val rootIsCommonCheckBox: JCheckBox =
+        JCheckBox("Root module is common", false)
     private val rootModuleNameComponent: LabeledComponent<JTextField> =
         LabeledComponent.create(JTextField(), "Root module name:", BorderLayout.WEST)
     private val commonModuleNameComponent: LabeledComponent<JTextField> =
@@ -103,6 +105,9 @@ class KotlinGradleMultiplatformWizardStep(
         jvmModuleNameComponent.component.document.addDocumentListener(stopSyncEditingListener)
         jsModuleNameComponent.component.document.addDocumentListener(stopSyncEditingListener)
 
+        rootIsCommonCheckBox.addItemListener {
+            commonModuleNameComponent.isEnabled = !rootIsCommonCheckBox.isSelected
+        }
         jvmCheckBox.addItemListener {
             jvmModuleNameComponent.isEnabled = jvmCheckBox.isSelected
             jdkComboBox.isEnabled = jvmCheckBox.isSelected
@@ -112,6 +117,14 @@ class KotlinGradleMultiplatformWizardStep(
         }
 
         panel.border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        panel.add(
+            rootIsCommonCheckBox,
+            GridBagConstraints(
+                0, GridBagConstraints.RELATIVE, 1, 1, 1.0, 0.0,
+                GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL,
+                JBUI.emptyInsets(), 0, 0
+            )
+        )
         panel.add(
             rootModuleNameComponent,
             GridBagConstraints(
@@ -207,7 +220,7 @@ class KotlinGradleMultiplatformWizardStep(
     private val rootModuleName: String
         get() = rootModuleNameComponent.component.text
     private val commonModuleName: String
-        get() = commonModuleNameComponent.component.text
+        get() = if (!rootIsCommonCheckBox.isSelected) commonModuleNameComponent.component.text else ""
     private val jvmModuleName: String
         get() = if (jvmCheckBox.isSelected) jvmModuleNameComponent.component.text else ""
     private val jdk: Sdk?
@@ -218,6 +231,15 @@ class KotlinGradleMultiplatformWizardStep(
     override fun validate(): Boolean {
         if (rootModuleName.isEmpty()) {
             throw ConfigurationException("Please specify the root module name")
+        }
+        if (!rootIsCommonCheckBox.isSelected && commonModuleName.isEmpty()) {
+            throw ConfigurationException("Please specify the common module name")
+        }
+        if (jvmCheckBox.isSelected && jvmModuleName.isEmpty()) {
+            throw ConfigurationException("Please specify the JVM module name")
+        }
+        if (jsCheckBox.isSelected && jsModuleName.isEmpty()) {
+            throw ConfigurationException("Please specify the JS module name")
         }
         if (commonModuleName.isNotEmpty()
             && (commonModuleName == rootModuleName || commonModuleName == jvmModuleName || commonModuleName == jsModuleName)
